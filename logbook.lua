@@ -68,28 +68,8 @@ end
 
 -- ---------------------------------------------------------------------------
 -- Time
--- api.Time:GetLocalTime() is unix seconds (UTC); dates are worked out here so they
--- don't depend on the field names of the client's date table.
+-- api.Time:GetLocalTime() is unix seconds (UTC).
 -- ---------------------------------------------------------------------------
-
--- unix seconds -> year, month, day, hour, min, sec (UTC); days -> civil date per H. Hinnant
-local function epochToDate(seconds)
-	local days = math.floor(seconds / 86400)
-	local rest = seconds - days * 86400
-	local z = days + 719468
-	local era = math.floor(z / 146097)
-	local doe = z - era * 146097
-	local yoe = math.floor((doe - math.floor(doe / 1460) + math.floor(doe / 36524) - math.floor(doe / 146096)) / 365)
-	local doy = doe - (365 * yoe + math.floor(yoe / 4) - math.floor(yoe / 100))
-	local mp = math.floor((5 * doy + 2) / 153)
-	local day = doy - math.floor((153 * mp + 2) / 5) + 1
-	local month = mp < 10 and mp + 3 or mp - 9
-	local year = yoe + era * 400
-	if month <= 2 then
-		year = year + 1
-	end
-	return year, month, day, math.floor(rest / 3600), math.floor((rest % 3600) / 60), math.floor(rest % 60)
-end
 
 local function currentTime()
 	return tonumber(safeCall(function() return api.Time:GetLocalTime() end))
@@ -124,11 +104,16 @@ end
 
 -- ---------------------------------------------------------------------------
 -- Storage
--- Regrades are split into one file per month (UTC), e.g. 2026-10.dat; _count.dat keeps the totals.
+-- Regrades are split into one file per first two letters of the character (as PlayerDB does),
+-- e.g. al.dat; names that don't start with two letters/digits go to _other.dat. _count.dat keeps the totals.
 -- ---------------------------------------------------------------------------
 
-local function monthPath(year, month)
-	return string.format("%s%04d-%02d.dat", REGRADES_DIR, year, month)
+local function characterPath(name)
+	local prefix = string.lower(string.sub(name, 1, 2))
+	if not string.find(prefix, "^%w%w$") then
+		prefix = "_other"
+	end
+	return REGRADES_DIR .. prefix .. ".dat"
 end
 
 local function readList(path)
@@ -178,24 +163,20 @@ function logbook.LogRegrade(characterName, resultCode, itemLink, oldGrade, newGr
 		logbook.LogError("no local time, regrade by " .. tostring(characterName) .. " not saved")
 		return nil
 	end
-	local year, month, day, hour, min, sec = epochToDate(seen)
 	local itemType = itemTypeFromLink(itemLink)
 
 	local entry = {
 		character = tostring(characterName),
 		result = result,
 		item = itemName(itemType),
-		item_type = itemType and numberToString(itemType) or nil,
-		item_link = type(itemLink) == "string" and itemLink or nil,
 		old_grade = gradeName(oldGrade),
 		new_grade = gradeName(newGrade),
 		old_grade_id = tonumber(oldGrade) and numberToString(tonumber(oldGrade)) or nil,
 		new_grade_id = tonumber(newGrade) and numberToString(tonumber(newGrade)) or nil,
 		time = numberToString(seen),
-		date_utc = string.format("%04d-%02d-%02d %02d:%02d:%02d", year, month, day, hour, min, sec),
 	}
 
-	local path = monthPath(year, month)
+	local path = characterPath(entry.character)
 	local list = readList(path)
 	list[#list + 1] = entry
 	api.File:Write(path, list)
@@ -221,10 +202,7 @@ end
 -- short description of a saved entry, e.g. "Bob destroyed Hiram Cloak (Celestial)"
 -- or "Bob upgraded Hiram Cloak (Celestial -> Divine)"
 function logbook.Describe(entry)
-	local item = entry.item
-	if item == nil then
-		item = entry.item_type and ("item #" .. entry.item_type) or "an item"
-	end
+	local item = entry.item or "an item"
 	local grade = entry.old_grade
 	if grade ~= nil and entry.new_grade ~= nil and entry.new_grade ~= grade then
 		grade = grade .. " -> " .. entry.new_grade
