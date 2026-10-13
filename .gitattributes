@@ -1,0 +1,5 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Left out of GitHub release archives (source zip / tarball)
+/Dev export-ignore
