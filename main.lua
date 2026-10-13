@@ -25,7 +25,7 @@ local function onRegrade(characterName, resultCode, itemLink, oldGrade, newGrade
 		return logbook.LogRegrade(characterName, resultCode, itemLink, oldGrade, newGrade)
 	end)
 	if entry == nil then
-		return -- not saved (error already logged)
+		return -- not saved (error already logged, or a repeated broadcast)
 	end
 	if not logbook.IsLoss(entry) then
 		return -- successes are logged but leave the light alone

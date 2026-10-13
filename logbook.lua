@@ -151,7 +151,23 @@ end
 -- Public
 -- ---------------------------------------------------------------------------
 
--- Saves one GRADE_ENCHANT_BROADCAST, failed or not. Returns the saved entry, or nil.
+-- the same broadcast can arrive twice; an identical entry within the same second is that repeat
+local function isDuplicate(list, entry)
+	for i = #list, 1, -1 do
+		local other = list[i]
+		if other.time ~= entry.time then
+			return false
+		end
+		if other.character == entry.character and other.result == entry.result and other.item == entry.item
+			and other.old_grade_id == entry.old_grade_id and other.new_grade_id == entry.new_grade_id then
+			return true
+		end
+	end
+	return false
+end
+
+-- Saves one GRADE_ENCHANT_BROADCAST, failed or not. Returns the saved entry, or nil
+-- (also when it repeats one already saved).
 function logbook.LogRegrade(characterName, resultCode, itemLink, oldGrade, newGrade)
 	local result = RESULT_NAMES[tonumber(resultCode)]
 	if result == nil then
@@ -169,8 +185,6 @@ function logbook.LogRegrade(characterName, resultCode, itemLink, oldGrade, newGr
 		character = tostring(characterName),
 		result = result,
 		item = itemName(itemType),
-		old_grade = gradeName(oldGrade),
-		new_grade = gradeName(newGrade),
 		old_grade_id = tonumber(oldGrade) and numberToString(tonumber(oldGrade)) or nil,
 		new_grade_id = tonumber(newGrade) and numberToString(tonumber(newGrade)) or nil,
 		time = numberToString(seen),
@@ -178,6 +192,9 @@ function logbook.LogRegrade(characterName, resultCode, itemLink, oldGrade, newGr
 
 	local path = characterPath(entry.character)
 	local list = readList(path)
+	if isDuplicate(list, entry) then
+		return nil
+	end
 	list[#list + 1] = entry
 	api.File:Write(path, list)
 
@@ -203,9 +220,10 @@ end
 -- or "Bob upgraded Hiram Cloak (Celestial -> Divine)"
 function logbook.Describe(entry)
 	local item = entry.item or "an item"
-	local grade = entry.old_grade
-	if grade ~= nil and entry.new_grade ~= nil and entry.new_grade ~= grade then
-		grade = grade .. " -> " .. entry.new_grade
+	local grade = gradeName(entry.old_grade_id)
+	local newGrade = gradeName(entry.new_grade_id)
+	if grade ~= nil and newGrade ~= nil and newGrade ~= grade then
+		grade = grade .. " -> " .. newGrade
 	end
 	return entry.character .. " " .. (RESULT_VERBS[entry.result] or entry.result) .. " " .. item
 		.. (grade and (" (" .. grade .. ")") or "")
