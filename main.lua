@@ -6,8 +6,8 @@ local statusdot = require("RegradeDB/statusdot")
 local RegradeDB = {
 	name = "RegradeDB",
 	author = "Madpeter",
-	version = "1.2.0",
-	desc = "Logs regrades: who upgraded, destroyed, downgraded or anchored which item"
+	version = "1.2.1",
+	desc = "Logs regrade wins and losses"
 }
 
 -- errors never reach chat; they are kept in RegradeDB/errors.dat
